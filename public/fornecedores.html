@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Fornecedores</title>
+</head>
+
+<body>
+    <h1>Lista de Fornecedores</h1>
+    <button id="show-create-form">Criar Novo Fornecedor</button> 
+    <a href="./menu.html">Menu</a>
+    <table id="fornecedores-table" border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Contato</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Linhas serão inseridas aqui via JavaScript -->
+        </tbody>
+    </table>
+
+    <div id="create-section" style="display: none;">
+        <h2>Criar Novo Fornecedor</h2>
+        <form id="create-form">
+            <label for="create-nome">Nome:</label>
+            <input type="text" id="create-nome" required><br><br>
+            <label for="create-contato">Contato:</label>
+            <input type="text" id="create-contato" required><br><br>
+            <button type="submit">Criar</button>
+        </form>
+    </div>
+
+    <div id="edit-section" style="display: none;">
+        <h2>Editar Fornecedor</h2>
+        <form id="edit-form">
+            <input type="hidden" id="edit-id">
+            <label for="edit-nome">Nome:</label>
+            <input type="text" id="edit-nome" required><br><br>
+            <label for="edit-contato">Contato:</label>
+            <input type="text" id="edit-contato" required><br><br>
+            <button type="submit">Salvar</button>
+        </form>
+    </div>
+
+    <div id="produtos-section" style="display: none;">
+        <h2>Produtos do Fornecedor</h2>
+        <ul id="produtos-list"></ul>
+    </div>
+
+    <script>
+        function showSection(sectionId) {
+            const sections = ['create-section', 'edit-section', 'produtos-section'];
+            sections.forEach(id => {
+                const section = document.getElementById(id);
+                if (section) {
+                    section.style.display = id === sectionId ? 'block' : 'none';
+                }
+            });
+        }
+
+        function showCreateForm() {
+            showSection('create-section');
+        }
+
+        function loadEditForm(fornecedor) {
+            document.getElementById('edit-id').value = fornecedor.id;
+            document.getElementById('edit-nome').value = fornecedor.nome;
+            document.getElementById('edit-contato').value = fornecedor.contato;
+            showSection('edit-section');
+        }
+
+        async function fetchProdutos(fornecedorId) {
+            try {
+                const response = await fetch(`/api_v1/fornecedores/${fornecedorId}/produtos`);
+                const produtos = await response.json();
+
+                const produtosList = document.getElementById('produtos-list');
+
+                // Limpar a lista de produtos existente
+                produtosList.innerHTML = '';
+
+                if (produtos.length === 0) {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = 'Sem produtos atrelados';
+                    produtosList.appendChild(listItem);
+                } else {
+                    produtos.forEach(produto => {
+                        const listItem = document.createElement('li');
+                        listItem.textContent = `${produto.nome} - R$${produto.preco.toFixed(2)}`;
+                        produtosList.appendChild(listItem);
+                    });
+                }
+
+                showSection('produtos-section');
+            } catch (error) {
+                console.error('Erro ao buscar produtos:', error);
+            }
+        }
+
+
+        async function createFornecedor(event) {
+            event.preventDefault();
+
+            const nome = document.getElementById('create-nome').value;
+            const contato = document.getElementById('create-contato').value;
+
+            try {
+                const response = await fetch('/api_v1/fornecedores', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ nome, contato }),
+                });
+
+                if (response.ok) {
+                    alert('Fornecedor criado com sucesso!');
+                    document.getElementById('create-form').reset();
+                    showSection('');
+                    console.log('Fetching fornecedores after create...');
+                    await fetchFornecedores(); // Recarregar a lista de fornecedores
+                } else {
+                    const errorText = await response.text();
+                    alert(`Erro ao criar fornecedor: ${errorText}`);
+                    console.error('Erro ao criar fornecedor:', errorText);
+                }
+            } catch (error) {
+                console.error('Erro ao criar fornecedor:', error);
+            }
+        }
+
+        async function updateFornecedor(event) {
+            event.preventDefault();
+
+            const id = document.getElementById('edit-id').value;
+            const nome = document.getElementById('edit-nome').value;
+            const contato = document.getElementById('edit-contato').value;
+
+            try {
+                const response = await fetch(`/api_v1/fornecedores/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ nome, contato }),
+                });
+
+                if (response.ok) {
+                    alert('Fornecedor atualizado com sucesso!');
+                    document.getElementById('edit-form').reset();
+                    showSection('');
+                    console.log('Fetching fornecedores after update...');
+                    await fetchFornecedores(); // Recarregar a lista de fornecedores
+                } else {
+                    const errorText = await response.text();
+                    alert(`Erro ao atualizar fornecedor: ${errorText}`);
+                    console.error('Erro ao atualizar fornecedor:', errorText);
+                }
+            } catch (error) {
+                console.error('Erro ao atualizar fornecedor:', error);
+            }
+        }
+
+        async function deleteFornecedor(id) {
+            if (!confirm('Tem certeza que deseja excluir este fornecedor?')) {
+                return;
+            }
+
+            try {
+                // Verificar se o fornecedor possui produtos
+                const produtosResponse = await fetch(`/api_v1/fornecedores/${id}/produtos`);
+                const produtos = await produtosResponse.json();
+
+                if (produtos.length > 0) {
+                    alert('O fornecedor não pode ser excluído, pois possui produtos atrelados a ele.');
+                    return;
+                }
+
+                // Se não possuir produtos, prosseguir com a exclusão
+                const response = await fetch(`/api_v1/fornecedores/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    alert('Fornecedor excluído com sucesso!');
+                    console.log('Fetching fornecedores after delete...');
+                    await fetchFornecedores(); // Recarregar a lista de fornecedores
+                } else {
+                    const errorText = await response.text();
+                    alert(`Erro ao excluir fornecedor: ${errorText}`);
+                    console.error('Erro ao excluir fornecedor:', errorText);
+                }
+            } catch (error) {
+                console.error('Erro ao excluir fornecedor:', error);
+            }
+        }
+
+        async function fetchFornecedores() {
+            try {
+                const response = await fetch('/api_v1/fornecedores');
+                const fornecedores = await response.json();
+
+                const tableBody = document.getElementById('fornecedores-table').getElementsByTagName('tbody')[0];
+
+                // Limpa todas as linhas existentes na tabela
+                tableBody.innerHTML = '';
+
+                fornecedores.forEach(fornecedor => {
+                    const row = tableBody.insertRow();
+
+                    const cellId = row.insertCell(0);
+                    const cellNome = row.insertCell(1);
+                    const cellContato = row.insertCell(2);
+                    const cellAcoes = row.insertCell(3);
+
+                    cellId.textContent = fornecedor.id;
+                    cellNome.textContent = fornecedor.nome;
+                    cellContato.textContent = fornecedor.contato;
+
+                    const editButton = document.createElement('button');
+                    editButton.textContent = 'Editar';
+                    editButton.onclick = () => loadEditForm(fornecedor);
+                    cellAcoes.appendChild(editButton);
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Excluir';
+                    deleteButton.onclick = () => deleteFornecedor(fornecedor.id);
+                    cellAcoes.appendChild(deleteButton);
+
+                    const listProductsButton = document.createElement('button');
+                    listProductsButton.textContent = 'Listar Produtos';
+                    listProductsButton.onclick = () => fetchProdutos(fornecedor.id);
+                    cellAcoes.appendChild(listProductsButton);
+                });
+            } catch (error) {
+                console.error('Erro ao buscar fornecedores:', error);
+            }
+        }
+
+        document.getElementById('show-create-form').addEventListener('click', showCreateForm);
+        document.getElementById('create-form').addEventListener('submit', createFornecedor);
+        document.getElementById('edit-form').addEventListener('submit', updateFornecedor);
+
+        window.onload = fetchFornecedores;
+    </script>
+</body>
+
+</html>

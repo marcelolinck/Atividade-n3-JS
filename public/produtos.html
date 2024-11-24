@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Produtos</title>
+</head>
+<body>
+    <h1>Lista de Produtos</h1>
+    <a href="./index.html">Menu</a>
+    <table id="produtos-table" border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Descricao</th>
+                <th>Preço</th>
+                <th>Fornecedor</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Linhas serão inseridas aqui via JavaScript -->
+        </tbody>
+    </table>
+
+    <script>
+        // Função para buscar e exibir os Produtos
+        async function fetchProdutos() {
+            try {
+                const response = await fetch('/api_v1/produtos');
+                const produtos = await response.json();
+
+                const tableBody = document.getElementById('produtos-table').getElementsByTagName('tbody')[0];
+
+                produtos.forEach(produto => {
+                    const row = tableBody.insertRow();
+
+                    const cellId = row.insertCell(0);
+                    const cellNome = row.insertCell(1);
+                    const cellPrecoReal = row.insertCell(2);
+                    const cellRazao = row.insertCell(3);
+
+                    cellId.textContent = produto.id;
+                    cellNome.textContent = produto.nome;
+                    cellPrecoReal.textContent = produto.preco_real;
+                    cellRazao.textContent = produto.razao;
+
+                });
+            } catch (error) {
+                console.error('Erro ao buscar Produtos:', error);
+            }
+        }
+
+        // Chama a função para buscar e exibir os Produtos ao carregar a página
+        window.onload = fetchProdutos;
+    </script>
+</body>
+</html>
