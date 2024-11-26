@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lista de Produtos</title>
 </head>
+
 <body>
     <h1>Lista de Produtos</h1>
+    <button id="show-create-form">Novo Produto</button>
     <a href="./index.html">Menu</a>
     <table id="produtos-table" border="1">
         <thead>
@@ -14,22 +17,110 @@
                 <th>ID</th>
                 <th>Descricao</th>
                 <th>Preço</th>
+                <th>Categoria</th>
                 <th>Fornecedor</th>
+                <th>Ações</th>
             </tr>
         </thead>
         <tbody>
             <!-- Linhas serão inseridas aqui via JavaScript -->
         </tbody>
     </table>
+    <div id="create-section" style="display: none;">
+        <h2>Criar Novo Produto</h2>
+        <form id="create-form">
+            <label for="create-nome">Nome:</label>
+            <input type="text" id="create-nome" required><br><br>
+            <label for="create-preco">Preço:</label>
+            <input type="number" id="create-preco" step="0.01" required><br><br>
+            <label for="create-fornecedor">Fornecedor:</label>
+            <select id="create-fornecedor" required></select><br><br>
+            <label for="create-categoria">Categoria:</label>
+            <select id="create-categoria" required></select><br><br>
+            <button type="submit">Criar</button>
+        </form>
+    </div>
+    <div id="edit-section" style="display: none;">
+        <h2>Editar Produto</h2>
+        <form id="edit-form"> <input type="hidden" id="edit-id">
+            <label for="edit-nome">Nome:</label> <input type="text" id="edit-nome" required><br><br>
+            <label for="edit-preco">Preço:</label>
+            <input type="number" id="edit-preco" step="0.01" required><br><br>
+            <label for="edit-fornecedor">Fornecedor:</label> <select id="edit-fornecedor" required></select><br><br>
+            <label for="edit-categoria">Categoria:</label> <select id="edit-categoria" required></select><br><br>
+            <button type="submit">Salvar</button>
+        </form>
+    </div>
 
     <script>
+
+        function showSection(sectionId) {
+            const sections = ['create-section', 'edit-section', 'produtos-section'];
+            sections.forEach(id => {
+                const section = document.getElementById(id);
+                if (section) {
+                    section.style.display = id === sectionId ? 'block' : 'none';
+                }
+            });
+        }
+
+        function showCreateForm() {
+            showSection('create-section');
+        }
+
+        async function carregarEdicao(produto) {
+            console.log(produto);  // Verifique o conteúdo de `produto`
+            document.getElementById('edit-id').value = produto.id;
+            document.getElementById('edit-nome').value = produto.nome;
+            document.getElementById('edit-preco').value = produto.preco_real;
+            
+            // Atribuindo os valores para os selects
+            await populateSelectOptions('edit-fornecedor', fetchFornecedores, produto.fornecedor_id);
+            await populateSelectOptions('edit-categoria', fetchCategorias, produto.categoria_id);
+
+            showSection('edit-section');
+        }
+
+
+        async function fetchFornecedores() {
+            const response = await fetch('/api_v1/fornecedores'); return response.json();
+        }
+
+        async function fetchCategorias() {
+            const response = await fetch('/api_v1/categorias');
+            return response.json();
+        }
+        async function populateSelectOptions(selectId, fetchFunction, selectedValue = null) {
+            const selectElement = document.getElementById(selectId);
+            const options = await fetchFunction();
+
+            selectElement.innerHTML = '';  // Limpa as opções anteriores
+
+            options.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option.id;
+                opt.textContent = option.nome;
+
+                // Verifica se a opção deve ser selecionada
+                if (selectedValue && option.id == selectedValue) {
+                    opt.selected = true;
+                }
+
+                selectElement.appendChild(opt);
+            });
+        }
+
+
         // Função para buscar e exibir os Produtos
-        async function fetchProdutos() {
+        async function carregarProdutos() {
             try {
                 const response = await fetch('/api_v1/produtos');
                 const produtos = await response.json();
 
                 const tableBody = document.getElementById('produtos-table').getElementsByTagName('tbody')[0];
+
+                // Limpa todas as linhas existentes na tabela
+                tableBody.innerHTML = '';
 
                 produtos.forEach(produto => {
                     const row = tableBody.insertRow();
@@ -37,12 +128,26 @@
                     const cellId = row.insertCell(0);
                     const cellNome = row.insertCell(1);
                     const cellPrecoReal = row.insertCell(2);
-                    const cellRazao = row.insertCell(3);
+                    const cellCategoria = row.insertCell(3);
+                    const cellRazao = row.insertCell(4);
+                    const cellAcoes = row.insertCell(5);
 
                     cellId.textContent = produto.id;
                     cellNome.textContent = produto.nome;
                     cellPrecoReal.textContent = produto.preco_real;
+                    cellCategoria.textContent = produto.categoria;
                     cellRazao.textContent = produto.razao;
+
+                    const editButton = document.createElement('button');
+                    editButton.textContent = 'Editar';
+                    editButton.onclick = () => carregarEdicao(produto);
+                    cellAcoes.appendChild(editButton);
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Excluir';
+                    deleteButton.onclick = () => deletarProduto(produto.id);
+                    cellAcoes.appendChild(deleteButton);
+
 
                 });
             } catch (error) {
@@ -50,8 +155,124 @@
             }
         }
 
+        async function criarProduto(event) {
+            event.preventDefault();
+            const nome = document.getElementById('create-nome').value;
+            const preco = document.getElementById('create-preco').value;
+            const fornecedor_id = document.getElementById('create-fornecedor').value;
+            const categoria_id = document.getElementById('create-categoria').value;
+            try {
+                const response = await fetch('/api_v1/produtos',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', },
+                        body: JSON.stringify({ nome, preco, fornecedor_id, categoria_id }),
+                    });
+                if (response.ok) {
+                    alert('Produto criado com sucesso!');
+                    document.getElementById('create-form').reset();
+                    showSection('');
+                    await carregarProdutos();
+                }
+                else {
+                    const errorText = await response.text();
+                    alert(`Erro ao criar produto: ${errorText}`);
+                    console.error('Erro ao criar produto:', errorText);
+                }
+            } catch (error) { console.error('Erro ao criar produto:', error); }
+        }
+
+
+        async function atualizarProduto(event) {
+            event.preventDefault();
+
+            const id = document.getElementById('edit-id').value;
+            const nome = document.getElementById('edit-nome').value;
+            const preco = document.getElementById('edit-preco').value;
+            const fornecedor_id = document.getElementById('edit-fornecedor').value;
+            const categoria_id = document.getElementById('edit-categoria').value;
+
+            console.log(`Preço: ${preco}`)
+            
+            try {
+                const response = await fetch(`/api_v1/produtos/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ nome, preco, fornecedor_id, categoria_id }),
+                });
+
+                if (response.ok) {
+                    alert('Produto atualizado com sucesso!');
+                    document.getElementById('edit-form').reset();
+                    showSection('');
+                    console.log('Carregando tela apos update produtos');
+                    await carregarProdutos(); // Recarregar a lista de fornecedores
+                } else {
+                    const errorText = await response.text();
+                    alert(`Erro ao atualizar o produto: (e001) ${errorText}`);
+                    console.error('Erro ao atualizar o produto: (e002)', errorText);
+                }
+            } catch (error) {
+                console.error('Erro ao atualizar o produto :(e003)', error);
+            }
+        }
+
+        async function deletarProduto(id) {
+            if (!confirm('Tem certeza que deseja excluir este produto?')) {
+                return;
+            }
+
+            try {
+
+                //efetuando a exclusao do produto
+                const response = await fetch(`/api_v1/produtos/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    alert('Produto excluída com sucesso!');
+                    console.log('Fetching produto after delete...');
+                    await carregarProdutos(); // Recarregar a lista de categorias
+                } else {
+                    const errorText = await response.text();
+                    alert(`Erro ao excluir produtos: ${errorText}`);
+                    console.error('Erro ao excluir produtos:', errorText);
+                }
+            } catch (error) {
+                console.error('Erro ao excluir produtos:', error);
+            }
+        }
+
+        function loadEditForm(produto) {
+            document.getElementById('edit-id').value = produto.id;
+            document.getElementById('edit-nome').value = produto.nome;
+            document.getElementById('edit-preco').value = produto.preco;
+            document.getElementById('edit-fornecedor').value = produto.fornecedor_id;
+            document.getElementById('edit-categoria').value = produto.categoria_id;
+            showSection('edit-section');
+        }
+
+        document.getElementById('show-create-form').addEventListener('click',
+            async () => {
+                showSection('create-section');
+                await populateSelectOptions('create-fornecedor', fetchFornecedores);
+                await populateSelectOptions('create-categoria', fetchCategorias);
+            });
+        document.getElementById('create-form').addEventListener('submit', criarProduto);
+        document.getElementById('edit-form').addEventListener('submit', atualizarProduto);
+
+
         // Chama a função para buscar e exibir os Produtos ao carregar a página
-        window.onload = fetchProdutos;
+        window.onload = async () => {
+            await carregarProdutos();
+            await populateSelectOptions('create-fornecedor', fetchFornecedores);
+            await populateSelectOptions('create-categoria', fetchCategorias);
+            await populateSelectOptions('edit-fornecedor', fetchFornecedores);
+            await populateSelectOptions('edit-categoria', fetchCategorias);
+        };
     </script>
 </body>
+
 </html>

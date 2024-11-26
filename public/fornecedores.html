@@ -10,7 +10,7 @@
 <body>
     <h1>Lista de Fornecedores</h1>
     <button id="show-create-form">Criar Novo Fornecedor</button> 
-    <a href="./menu.html">Menu</a>
+    <a href="./index.html">Menu</a>
     <table id="fornecedores-table" border="1">
         <thead>
             <tr>
@@ -75,7 +75,49 @@
             showSection('edit-section');
         }
 
-        async function fetchProdutos(fornecedorId) {
+        async function carregarFornecedores() {
+            try {
+                const response = await fetch('/api_v1/fornecedores');
+                const fornecedores = await response.json();
+
+                const tableBody = document.getElementById('fornecedores-table').getElementsByTagName('tbody')[0];
+
+                // Limpa todas as linhas existentes na tabela
+                tableBody.innerHTML = '';
+
+                fornecedores.forEach(fornecedor => {
+                    const row = tableBody.insertRow();
+
+                    const cellId = row.insertCell(0);
+                    const cellNome = row.insertCell(1);
+                    const cellContato = row.insertCell(2);
+                    const cellAcoes = row.insertCell(3);
+
+                    cellId.textContent = fornecedor.id;
+                    cellNome.textContent = fornecedor.nome;
+                    cellContato.textContent = fornecedor.contato;
+
+                    const editButton = document.createElement('button');
+                    editButton.textContent = 'Editar';
+                    editButton.onclick = () => loadEditForm(fornecedor);
+                    cellAcoes.appendChild(editButton);
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Excluir';
+                    deleteButton.onclick = () => deleteFornecedor(fornecedor.id);
+                    cellAcoes.appendChild(deleteButton);
+
+                    const listProductsButton = document.createElement('button');
+                    listProductsButton.textContent = 'Listar Produtos';
+                    listProductsButton.onclick = () => carregarProdutosFornecedor(fornecedor.id);
+                    cellAcoes.appendChild(listProductsButton);
+                });
+            } catch (error) {
+                console.error('Erro ao buscar fornecedores:', error);
+            }
+        }
+
+        async function carregarProdutosFornecedor(fornecedorId) {
             try {
                 const response = await fetch(`/api_v1/fornecedores/${fornecedorId}/produtos`);
                 const produtos = await response.json();
@@ -124,7 +166,7 @@
                     document.getElementById('create-form').reset();
                     showSection('');
                     console.log('Fetching fornecedores after create...');
-                    await fetchFornecedores(); // Recarregar a lista de fornecedores
+                    await carregarFornecedores(); // Recarregar a lista de fornecedores
                 } else {
                     const errorText = await response.text();
                     alert(`Erro ao criar fornecedor: ${errorText}`);
@@ -156,7 +198,7 @@
                     document.getElementById('edit-form').reset();
                     showSection('');
                     console.log('Fetching fornecedores after update...');
-                    await fetchFornecedores(); // Recarregar a lista de fornecedores
+                    await carregarFornecedores(); // Recarregar a lista de fornecedores
                 } else {
                     const errorText = await response.text();
                     alert(`Erro ao atualizar fornecedor: ${errorText}`);
@@ -190,7 +232,7 @@
                 if (response.ok) {
                     alert('Fornecedor excluído com sucesso!');
                     console.log('Fetching fornecedores after delete...');
-                    await fetchFornecedores(); // Recarregar a lista de fornecedores
+                    await carregarFornecedores(); // Recarregar a lista de fornecedores
                 } else {
                     const errorText = await response.text();
                     alert(`Erro ao excluir fornecedor: ${errorText}`);
@@ -201,53 +243,13 @@
             }
         }
 
-        async function fetchFornecedores() {
-            try {
-                const response = await fetch('/api_v1/fornecedores');
-                const fornecedores = await response.json();
-
-                const tableBody = document.getElementById('fornecedores-table').getElementsByTagName('tbody')[0];
-
-                // Limpa todas as linhas existentes na tabela
-                tableBody.innerHTML = '';
-
-                fornecedores.forEach(fornecedor => {
-                    const row = tableBody.insertRow();
-
-                    const cellId = row.insertCell(0);
-                    const cellNome = row.insertCell(1);
-                    const cellContato = row.insertCell(2);
-                    const cellAcoes = row.insertCell(3);
-
-                    cellId.textContent = fornecedor.id;
-                    cellNome.textContent = fornecedor.nome;
-                    cellContato.textContent = fornecedor.contato;
-
-                    const editButton = document.createElement('button');
-                    editButton.textContent = 'Editar';
-                    editButton.onclick = () => loadEditForm(fornecedor);
-                    cellAcoes.appendChild(editButton);
-
-                    const deleteButton = document.createElement('button');
-                    deleteButton.textContent = 'Excluir';
-                    deleteButton.onclick = () => deleteFornecedor(fornecedor.id);
-                    cellAcoes.appendChild(deleteButton);
-
-                    const listProductsButton = document.createElement('button');
-                    listProductsButton.textContent = 'Listar Produtos';
-                    listProductsButton.onclick = () => fetchProdutos(fornecedor.id);
-                    cellAcoes.appendChild(listProductsButton);
-                });
-            } catch (error) {
-                console.error('Erro ao buscar fornecedores:', error);
-            }
-        }
+        
 
         document.getElementById('show-create-form').addEventListener('click', showCreateForm);
         document.getElementById('create-form').addEventListener('submit', createFornecedor);
         document.getElementById('edit-form').addEventListener('submit', updateFornecedor);
 
-        window.onload = fetchFornecedores;
+        window.onload = carregarFornecedores;
     </script>
 </body>
 
